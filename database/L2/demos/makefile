@@ -35,7 +35,7 @@ help::
 	@echo "  make run TARGET=<sw_emu|hw_emu|hw>"
 	@echo "      Command to build xclbin files to be used in demos"
 	@echo ""
-	@echo "  make run TARGET=<sw_emu|hw_emu|hw> TB=<Q1|Q2|...> MDOE=<FPGA|CPU>"
+	@echo "  make run TARGET=<sw_emu|hw_emu|hw> TB=<Q1|Q2|...> MODE=<FPGA|CPU>"
 	@echo "      Command to run a specific demo."
 	@echo ""
 	@echo "  make clean "
@@ -84,7 +84,7 @@ $(XCLBIN_FILE_H):
 $(XCLBIN_FILE_A):
 	make -C $(CUR_DIR)/build_aggr_partition xclbin
 
-xclbin: $(XCLBIN_FILE_A) $(XCLBIN_FILE_H)
+xclbin: $(XCLBIN_FILE_A) $(XCLBIN_FILE_H) 
 
 # -----------------------------------------------------------------------------
 # host setup
@@ -93,15 +93,30 @@ XFLIB_DIR = $(abspath $(CUR_DIR)/../..)
 SRC_BASE_DIR = $(XFLIB_DIR)/L2/demos/host
 
 MODE ?= FPGA
-SF ?= 1
+SF ?= 30
+TEST ?= XILINX
 
 ifeq ($(MODE),CPU)
-  TB_DIR = cpu
+  # TB_DIR = cpu
+  ifeq ($(TEST),XILINX)
+    TB_DIR = cpu
+  else ifeq ($(TEST),SQL2FPGA)
+    TB_DIR = sfsql2fpga_cpu
+  endif
 else ifeq ($(MODE),FPGA)
 ifeq ($(SF),1)
-  TB_DIR = sf1_fpga
+  ifeq ($(TEST),XILINX)
+    TB_DIR = sf1_fpga
+  else ifeq ($(TEST),SQL2FPGA)
+    TB_DIR = sfsql2fpga_fpga
+  endif
 else ifeq ($(SF),30)
-  TB_DIR = sf30_fpga
+  ifeq ($(TEST),XILINX)
+    # TB_DIR = sf1_fpga
+    TB_DIR = sf30_fpga
+  else ifeq ($(TEST),SQL2FPGA)
+    TB_DIR = sfsql2fpga_fpga
+  endif
 else
   $(error Scale factor other than 1 and 30 is not supported in host code)
 endif # SF
@@ -109,14 +124,14 @@ else
   $(error Please set MODE as either 'fpga' or 'cpu')
 endif # MODE
 
-TB ?= Q2
-HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0
+TB ?= Q1
+HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0
 
 ifeq ($(TB),Q1)
   EXE_NAME = test_q1_$(MODE)_$(SF)
   SRCS = test_q1.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q01/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
 else ifeq ($(TB),Q2)
   EXE_NAME = test_q2_$(MODE)_$(SF)
   SRCS = test_q2.cpp
@@ -125,11 +140,14 @@ else ifeq ($(TB),Q3)
   EXE_NAME = test_q3_$(MODE)_$(SF)
   SRCS = test_q3.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q03/$(TB_DIR)
-  HOST_ARGS = -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF)
+else ifeq ($(TB),Qop)
+  EXE_NAME = test_qop_$(MODE)_$(SF)
+  SRCS = test_qop.cpp
+  SRC_DIR = $(SRC_BASE_DIR)/qop/$(TB_DIR)  
 else ifeq ($(TB),Q4)
   EXE_NAME = test_q4_$(MODE)_$(SF)
   SRCS = test_q4.cpp
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
   SRC_DIR = $(SRC_BASE_DIR)/q04/$(TB_DIR)
 else ifeq ($(TB),Q5)
   EXE_NAME = test_q5_$(MODE)_$(SF)
@@ -143,7 +161,7 @@ else ifeq ($(TB),Q7)
   EXE_NAME = test_q7_$(MODE)_$(SF)
   SRCS = test_q7.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q07/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0 -p 2
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0 -p 8
 else ifeq ($(TB),Q8)
   EXE_NAME = test_q8_$(MODE)_$(SF)
   SRCS = test_q8.cpp
@@ -152,27 +170,27 @@ else ifeq ($(TB),Q9)
   EXE_NAME = test_q9_$(MODE)_$(SF)
   SRCS = test_q9.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q09/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0 -p 32
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0 -p 32
 else ifeq ($(TB),Q10)
   EXE_NAME = test_q10_$(MODE)_$(SF)
   SRCS = test_q10.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q10/$(TB_DIR)
-  HOST_ARGS = -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF)
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF)
 else ifeq ($(TB),Q11)
   EXE_NAME = test_q11_$(MODE)_$(SF)
   SRCS = test_q11.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q11/$(TB_DIR)
-  HOST_ARGS = -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF)
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF)
 else ifeq ($(TB),Q12)
   EXE_NAME = test_q12_$(MODE)_$(SF)
   SRCS = test_q12.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q12/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0 -p 23
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0 -p 23
 else ifeq ($(TB),Q13)
   EXE_NAME = test_q13_$(MODE)_$(SF)
   SRCS = test_q13.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q13/$(TB_DIR)
-  HOST_ARGS = -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -pa 18 -ph 32
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -pa 18 -ph 32
 else ifeq ($(TB),Q14)
   EXE_NAME = test_q14_$(MODE)_$(SF)
   SRCS = test_q14.cpp
@@ -181,7 +199,7 @@ else ifeq ($(TB),Q15)
   EXE_NAME = test_q15_$(MODE)_$(SF)
   SRCS = test_q15.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q15/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
 else ifeq ($(TB),Q16)
   EXE_NAME = test_q16_$(MODE)_$(SF)
   SRCS = test_q16.cpp
@@ -194,7 +212,7 @@ else ifeq ($(TB),Q18)
   EXE_NAME = test_q18_$(MODE)_$(SF)
   SRCS = test_q18.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q18/$(TB_DIR)
-  HOST_ARGS = -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 20
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 20
 else ifeq ($(TB),Q19)
   EXE_NAME = test_q19_$(MODE)_$(SF)
   SRCS = test_q19.cpp
@@ -203,17 +221,22 @@ else ifeq ($(TB),Q20)
   EXE_NAME = test_q20_$(MODE)_$(SF)
   SRCS = test_q20.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q20/$(TB_DIR)
-  HOST_ARGS = -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22
 else ifeq ($(TB),Q21)
   EXE_NAME = test_q21_$(MODE)_$(SF)
   SRCS = test_q21.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q21/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 64
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 64
 else ifeq ($(TB),Q22)
   EXE_NAME = test_q22_$(MODE)_$(SF)
   SRCS = test_q22.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q22/$(TB_DIR)
-  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 16
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 16
+else ifeq ($(TB),Q23)
+  EXE_NAME = test_q23_$(MODE)_$(SF)
+  SRCS = test_q23.cpp
+  SRC_DIR = $(SRC_BASE_DIR)/q23/$(TB_DIR)
+  HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 16  
 endif
 
 test_q1_EXTRA_HDRS += $(SRC_DIR)/q1.hpp
@@ -224,9 +247,9 @@ test_q3_EXTRA_HDRS += $(SRC_DIR)/q3.hpp
 
 test_q4_EXTRA_HDRS += $(SRC_DIR)/q4.hpp
 
-test_q7_EXTRA_HDRS += $(SRC_DIR)/q5.hpp
+test_q5_EXTRA_HDRS += $(SRC_DIR)/q5.hpp
 
-test_q7_EXTRA_HDRS += $(SRC_DIR)/q6.hpp
+test_q6_EXTRA_HDRS += $(SRC_DIR)/q6.hpp
 
 test_q7_EXTRA_HDRS += $(SRC_DIR)/q7.hpp
 
@@ -260,8 +283,9 @@ test_q21_EXTRA_HDRS += $(SRC_DIR)/q21.hpp
 
 test_q22_EXTRA_HDRS += $(SRC_DIR)/q22.hpp
 
+test_q23_EXTRA_HDRS += $(SRC_DIR)/q23.hpp
 
-CXXFLAGS += -D XDEVICE=$(XDEVICE) -I$(XFLIB_DIR)/L1/include/hw -I$(XFLIB_DIR)/L3/include/sw -I$(SRC_BASE_DIR)  -g
+CXXFLAGS += -D XDEVICE=$(XDEVICE) -I$(XFLIB_DIR)/L1/include/hw -I$(XFLIB_DIR)/L3/include/sw -I$(SRC_BASE_DIR) -g 
 
 # EXTRA_OBJS is cannot be compiled from SRC_DIR, user should provide the rule
 EXTRA_OBJS += xcl2
@@ -291,10 +315,10 @@ BIN_DIR_SUFFIX ?= _$(XDEVICE)
 OBJ_DIR = $(CUR_DIR)/$(OBJ_DIR_BASE)$(BIN_DIR_SUFFIX)
 BIN_DIR = $(CUR_DIR)/$(BIN_DIR_BASE)$(BIN_DIR_SUFFIX)
 
-CXXFLAGS += -std=c++14 -fPIC \
+CXXFLAGS += -std=c++14 -O2 -fPIC \
 	-I$(SRC_DIR) -I$(XILINX_XRT)/include -I$(XILINX_VIVADO)/include \
 	-Wall -Wno-unknown-pragmas -Wno-unused-label -pthread
-CFLAGS +=
+# CFLAGS +=
 LDFLAGS += -pthread -L$(XILINX_XRT)/lib -lxilinxopencl
 LDFLAGS += -L$(XILINX_VIVADO)/lnx64/tools/fpo_v7_0 -Wl,--as-needed -lgmp -lmpfr \
 	   -lIp_floating_point_v7_0_bitacc_cmodel
