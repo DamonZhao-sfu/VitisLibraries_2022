@@ -81,7 +81,7 @@ void columnize_c(customer_t* buf_c,
                  std::vector<std::array<char, TPCH_READ_PHONE_LEN + 1> >& col_c_phone,
                  TPCH_INT* col_c_acctbal,
                  std::vector<std::array<char, TPCH_READ_MAXAGG_LEN + 1> >& col_c_mktsegment,
-                 std::vector<std::array<char, TPCH_READ_S_CMNT_MAX + 1> >& col_c_comment) {
+                 std::vector<std::array<char, TPCH_READ_C_CMNT_MAX + 1> >& col_c_comment) {
     for (size_t i = 0; i < nrow; ++i) {
         col_c_custkey[i] = buf_c[i].custkey;
         col_c_nationkey[i] = buf_c[i].nationkey;
@@ -90,7 +90,7 @@ void columnize_c(customer_t* buf_c,
         memcpy(col_c_name[i].data(), buf_c[i].name.data, TPCH_READ_C_NAME_LEN + 1);
         memcpy(col_c_address[i].data(), buf_c[i].address.data, TPCH_READ_S_ADDR_MAX + 1);
         memcpy(col_c_phone[i].data(), buf_c[i].phone.data, TPCH_READ_PHONE_LEN + 1);
-        memcpy(col_c_comment[i].data(), buf_c[i].comment.data, TPCH_READ_S_CMNT_MAX + 1);
+        memcpy(col_c_comment[i].data(), buf_c[i].comment.data, TPCH_READ_C_CMNT_MAX + 1);
     }
 }
 
@@ -378,7 +378,7 @@ int main(int argc, const char* argv[]) {
     std::vector<TPCH_INT> col_c_acctbal(c_nrow);
     std::vector<std::array<char, TPCH_READ_S_ADDR_MAX + 1> > col_c_address(c_nrow);
     std::vector<std::array<char, TPCH_READ_PHONE_LEN + 1> > col_c_phone(c_nrow);
-    std::vector<std::array<char, TPCH_READ_S_CMNT_MAX + 1> > col_c_comment(c_nrow);
+    std::vector<std::array<char, TPCH_READ_C_CMNT_MAX + 1> > col_c_comment(c_nrow);
 
     size_t o_nrow = o_vec.size();
     std::vector<TPCH_INT> col_o_orderkey(o_nrow);
@@ -506,7 +506,7 @@ int main(int argc, const char* argv[]) {
     write_to_file(out_dir + "/c_phone.dat", col_c_phone);
     write_to_file(out_dir + "/c_acctbal.dat", col_c_acctbal);
     write_to_file(out_dir + "/c_mktsegment.dat", col_c_mktsegment);
-    write_to_file(out_dir + "/c_commet.dat", col_c_comment);
+    write_to_file(out_dir + "/c_comment.dat", col_c_comment);
 
     write_to_file(out_dir + "/o_orderkey.dat", col_o_orderkey);
     write_to_file(out_dir + "/o_custkey.dat", col_o_custkey);

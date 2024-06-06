@@ -51,11 +51,16 @@ endif
 .PHONY: all
 all: host
 
-DEVICE ?= xilinx_u280_xdma_201920_3
-ifneq ($(findstring u280, $(DEVICE)), u280)
-$(error [ERROR]: This project is not supported for $(DEVICE).)
-endif
+# make run TARGET=hw MODE=FPGA TB=Q1 DEVICE=xilinx_u5gen3x16_xdma_5_202210_1 TEST=ALEC
+# xilinx_u50_gen3x16_xdma_5_202210_1
+DEVICE ?= xilinx_u280_gen3x16_xdma_1_202211_1.xpfm
+# ifneq ($(findstring u280, $(DEVICE)), u280)
+# $(error [ERROR]: This project is not supported for $(DEVICE).)
+# endif
 
+# xclbin_xilinx_u50_gen3x16_xdma_5_202210_1_hw
+# xo_xilinx_u50_gen3x16_xdma_5_202210_1_hw
+# _x_xilinx_u50_gen3x16_xdma_5_202210_1_hw
 
 HOST_ARCH := x86
 include $(CUR_DIR)/utils.mk
@@ -65,9 +70,9 @@ XDEVICE := $(basename $(notdir $(firstword $(XPLATFORM))))
 # -----------------------------------------------------------------------------
 # data creation and other user targets
 
-DATA_STAMP := $(CUR_DIR)/db_data/dat$(SF)/.stamp
+#DATA_STAMP := $(CUR_DIR)/db_data_tpcds/dat$(SF)/.stamp
 $(DATA_STAMP):
-	make -C $(CUR_DIR)/db_data
+	make -C $(CUR_DIR)/db_data_tpcds
 
 .PHONY: data
 data: $(DATA_STAMP)
@@ -78,12 +83,16 @@ data: $(DATA_STAMP)
 # override the default and use a user provide path
 XCLBIN_FILE_H = $(CUR_DIR)/build_join_partition/xclbin_$(XDEVICE)_$(TARGET)/gqe_join.xclbin
 XCLBIN_FILE_A = $(CUR_DIR)/build_aggr_partition/xclbin_$(XDEVICE)_$(TARGET)/gqe_aggr.xclbin
+XCLBIN_FILE_ALEC = $(CUR_DIR)/build_alec_operators/xclbin_$(XDEVICE)_$(TARGET)/alec_operators.xclbin
 
 $(XCLBIN_FILE_H):
 	make -C $(CUR_DIR)/build_join_partition xclbin
 $(XCLBIN_FILE_A):
 	make -C $(CUR_DIR)/build_aggr_partition xclbin
+$(XCLBIN_FILE_ALEC):
+	make -C $(CUR_DIR)/build_alec_operators xclbin  
 
+#xclbin: $(XCLBIN_FILE_A) $(XCLBIN_FILE_H) $(XCLBIN_FILE_ALEC)
 xclbin: $(XCLBIN_FILE_A) $(XCLBIN_FILE_H) 
 
 # -----------------------------------------------------------------------------
@@ -93,7 +102,7 @@ XFLIB_DIR = $(abspath $(CUR_DIR)/../..)
 SRC_BASE_DIR = $(XFLIB_DIR)/L2/demos/host
 
 MODE ?= FPGA
-SF ?= 30
+SF ?= 1
 TEST ?= XILINX
 
 ifeq ($(MODE),CPU)
@@ -101,21 +110,21 @@ ifeq ($(MODE),CPU)
   ifeq ($(TEST),XILINX)
     TB_DIR = cpu
   else ifeq ($(TEST),SQL2FPGA)
-    TB_DIR = sfsql2fpga_cpu
+    TB_DIR = 2022_sfsql2fpga_fpga
   endif
 else ifeq ($(MODE),FPGA)
 ifeq ($(SF),1)
   ifeq ($(TEST),XILINX)
     TB_DIR = sf1_fpga
   else ifeq ($(TEST),SQL2FPGA)
-    TB_DIR = sfsql2fpga_fpga
+    TB_DIR = 2022_sf1_sql2fpga_fpga
   endif
 else ifeq ($(SF),30)
   ifeq ($(TEST),XILINX)
     # TB_DIR = sf1_fpga
     TB_DIR = sf30_fpga
   else ifeq ($(TEST),SQL2FPGA)
-    TB_DIR = sfsql2fpga_fpga
+    TB_DIR = 2022_sfsql2fpga_fpga
   endif
 else
   $(error Scale factor other than 1 and 30 is not supported in host code)
@@ -124,13 +133,15 @@ else
   $(error Please set MODE as either 'fpga' or 'cpu')
 endif # MODE
 
-TB ?= Q1
+TB ?= Q2
 HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -b 0
+# HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data_tpcds/dat$(SF)  -c $(SF) -b 0
 
 ifeq ($(TB),Q1)
   EXE_NAME = test_q1_$(MODE)_$(SF)
   SRCS = test_q1.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q01/$(TB_DIR)
+  # HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -xclbin_a $(XCLBIN_FILE_A) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
   HOST_ARGS = -xclbin $(XCLBIN_FILE_A) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
 else ifeq ($(TB),Q2)
   EXE_NAME = test_q2_$(MODE)_$(SF)
@@ -148,11 +159,16 @@ else ifeq ($(TB),Q4)
   EXE_NAME = test_q4_$(MODE)_$(SF)
   SRCS = test_q4.cpp
   HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data/dat$(SF)  -c $(SF) -p 22 -b 0
+  # HOST_ARGS = -xclbin $(XCLBIN_FILE_H) -xclbin_a $(XCLBIN_FILE_A) -xclbin_h $(XCLBIN_FILE_H) -in $(CUR_DIR)/db_data_tpcds/dat$(SF)  -c $(SF) -p 22 -b 0
   SRC_DIR = $(SRC_BASE_DIR)/q04/$(TB_DIR)
 else ifeq ($(TB),Q5)
   EXE_NAME = test_q5_$(MODE)_$(SF)
   SRCS = test_q5.cpp
   SRC_DIR = $(SRC_BASE_DIR)/q05/$(TB_DIR)
+else ifeq ($(TB),Qalec) # <=== Alec-added: modify to evaluate each individual op
+  EXE_NAME = test_qalec_$(MODE)_$(SF)
+  SRCS = test_qalec.cpp
+  SRC_DIR = $(SRC_BASE_DIR)/qalec/$(TB_DIR)
 else ifeq ($(TB),Q6)
   EXE_NAME = test_q6_$(MODE)_$(SF)
   SRCS = test_q6.cpp
@@ -245,6 +261,8 @@ test_q2_EXTRA_HDRS += $(SRC_DIR)/q2.hpp
 
 test_q3_EXTRA_HDRS += $(SRC_DIR)/q3.hpp
 
+test_qalec_EXTRA_HDRS += $(SRC_DIR)/qalec.hpp
+
 test_q4_EXTRA_HDRS += $(SRC_DIR)/q4.hpp
 
 test_q5_EXTRA_HDRS += $(SRC_DIR)/q5.hpp
@@ -315,13 +333,16 @@ BIN_DIR_SUFFIX ?= _$(XDEVICE)
 OBJ_DIR = $(CUR_DIR)/$(OBJ_DIR_BASE)$(BIN_DIR_SUFFIX)
 BIN_DIR = $(CUR_DIR)/$(BIN_DIR_BASE)$(BIN_DIR_SUFFIX)
 
+# CXXFLAGS += -fmessage-length=0 -I$(CUR_DIR)/src/ -I$(XILINX_XRT)/include -I$(XILINX_HLS)/include -std=c++14 -O3 -Wall -Wno-unknown-pragmas -Wno-unused-label 
 CXXFLAGS += -std=c++14 -O2 -fPIC \
-	-I$(SRC_DIR) -I$(XILINX_XRT)/include -I$(XILINX_VIVADO)/include \
+	-I$(SRC_DIR) -I$(XILINX_XRT)/include -I$(XILINX_HLS)/include -I$(XILINX_VIVADO)/include \
 	-Wall -Wno-unknown-pragmas -Wno-unused-label -pthread
-# CFLAGS +=
+# LDFLAGS += -pthread -L$(XILINX_XRT)/lib -L$(XILINX_HLS)/lnx64/tools/fpo_v7_1 -Wl,--as-needed -lOpenCL -lxrt_coreutil -lgmp -lmpfr -lIp_floating_point_v7_1_bitacc_cmodel 
 LDFLAGS += -pthread -L$(XILINX_XRT)/lib -lxilinxopencl
-LDFLAGS += -L$(XILINX_VIVADO)/lnx64/tools/fpo_v7_0 -Wl,--as-needed -lgmp -lmpfr \
-	   -lIp_floating_point_v7_0_bitacc_cmodel
+# LDFLAGS += -L$(XILINX_VIVADO)/lnx64/tools/fpo_v7_0 -Wl,--as-needed -lgmp -lmpfr \
+     -lIp_floating_point_v7_0_bitacc_cmodel
+LDFLAGS += -L$(XILINX_HLS)/lnx64/tools/fpo_v7_1 -Wl,--as-needed -lgmp -lmpfr \
+	   -lIp_floating_point_v7_1_bitacc_cmodel
 
 OBJ_FILES = $(foreach s,$(SRCS),$(OBJ_DIR)/$(basename $(s)).o)
 
@@ -368,6 +389,9 @@ ifneq ($(OBJ_DIR_BASE),)
 endif
 ifneq ($(BIN_DIR_BASE),)
 	rm -rf $(BIN_DIR_BASE)*
+endif
+ifneq ($(XCLBIN_FILE_ALEC),)
+	rm $(XCLBIN_FILE_ALEC)
 endif
 
 cleanall: clean
